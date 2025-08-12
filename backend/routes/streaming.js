@@ -51,7 +51,12 @@ router.get('/obs-config', authMiddleware, async (req, res) => {
 
     // Garantir que o diretório do usuário existe no servidor
     try {
-      await SSHManager.createUserDirectory(serverId, userLogin);
+      await SSHManager.createCompleteUserStructure(serverId, userLogin, {
+        bitrate: userConfig.bitrate || 2500,
+        espectadores: userConfig.espectadores || 100,
+        status_gravando: userConfig.status_gravando || 'nao',
+        senha_transmissao: 'teste2025'
+      });
       console.log(`✅ Diretório do usuário ${userLogin} verificado no servidor ${serverId}`);
     } catch (dirError) {
       console.warn('Aviso: Erro ao verificar/criar diretório do usuário:', dirError.message);
@@ -79,13 +84,13 @@ router.get('/obs-config', authMiddleware, async (req, res) => {
     res.json({
       success: true,
       obs_config: {
-        rtmp_url: `rtmp://samhost.wcore.com.br:1935/samhost`,
+        rtmp_url: `rtmp://samhost.wcore.com.br:1935/${userLogin}`,
         stream_key: `${userLogin}_live`,
-        hls_url: `http://samhost.wcore.com.br:1935/samhost/${userLogin}_live/playlist.m3u8`,
+        hls_url: `http://samhost.wcore.com.br:1935/${userLogin}/${userLogin}_live/playlist.m3u8`,
         max_bitrate: allowedBitrate,
         max_viewers: userConfig.espectadores,
         recording_enabled: userConfig.status_gravando === 'sim',
-        recording_path: `/usr/local/WowzaStreamingEngine/content/${userLogin}/recordings/`
+        recording_path: `/home/streaming/${userLogin}/recordings/`
       },
       user_limits: {
         bitrate: {

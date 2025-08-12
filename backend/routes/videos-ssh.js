@@ -46,9 +46,9 @@ router.get('/proxy-stream/:videoId', async (req, res) => {
       return res.status(400).json({ error: 'ID de vídeo inválido' });
     }
 
-    // Verificar se o caminho pertence ao usuário
+    // Verificar se o caminho pertence ao usuário (nova estrutura)
     const userLogin = decoded.email ? decoded.email.split('@')[0] : `user_${decoded.userId}`;
-    if (!remotePath.includes(`/${userLogin}/`)) {
+    if (!remotePath.includes(`/home/streaming/${userLogin}/`) && !remotePath.includes(`streaming/${userLogin}/`)) {
       return res.status(403).json({ error: 'Acesso negado ao vídeo' });
     }
 
@@ -312,8 +312,8 @@ router.get('/stream/:videoId', async (req, res) => {
 
     console.log(`🎥 Solicitação de stream SSH: ${remotePath} para usuário ${userLogin}`);
 
-    // Verificar se o caminho pertence ao usuário
-    if (!remotePath.includes(`/${userLogin}/`)) {
+    // Verificar se o caminho pertence ao usuário (nova estrutura)
+    if (!remotePath.includes(`/home/streaming/${userLogin}/`) && !remotePath.includes(`streaming/${userLogin}/`)) {
       return res.status(403).json({ error: 'Acesso negado ao vídeo' });
     }
 
@@ -488,8 +488,8 @@ router.get('/info/:videoId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'ID de vídeo inválido' });
     }
 
-    // Verificar se o caminho pertence ao usuário
-    if (!remotePath.includes(`/${userLogin}/`)) {
+    // Verificar se o caminho pertence ao usuário (nova estrutura)
+    if (!remotePath.includes(`/home/streaming/${userLogin}/`) && !remotePath.includes(`streaming/${userLogin}/`)) {
       return res.status(403).json({ error: 'Acesso negado ao vídeo' });
     }
 
@@ -540,8 +540,8 @@ router.delete('/:videoId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'ID de vídeo inválido' });
     }
 
-    // Verificar se o caminho pertence ao usuário
-    if (!remotePath.includes(`/${userLogin}/`)) {
+    // Verificar se o caminho pertence ao usuário (nova estrutura)
+    if (!remotePath.includes(`/home/streaming/${userLogin}/`) && !remotePath.includes(`streaming/${userLogin}/`)) {
       return res.status(403).json({ error: 'Acesso negado ao vídeo' });
     }
 
@@ -835,8 +835,8 @@ router.put('/rename-by-path/:videoId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'ID de vídeo inválido' });
     }
 
-    // Verificar se o caminho pertence ao usuário
-    if (!remotePath.includes(`/${userLogin}/`)) {
+    // Verificar se o caminho pertence ao usuário (nova estrutura)
+    if (!remotePath.includes(`/home/streaming/${userLogin}/`) && !remotePath.includes(`streaming/${userLogin}/`)) {
       return res.status(403).json({ error: 'Acesso negado ao vídeo' });
     }
 
@@ -1034,4 +1034,4 @@ router.post('/folders/:folderId/sync', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.router;

@@ -66,19 +66,32 @@ Aplicação: live
 
 ### Configuração SSH para Upload de Vídeos
 ```bash
-# O sistema agora usa SSH para enviar arquivos diretamente para o servidor Wowza
+# Nova estrutura seguindo padrão de referência:
 # Estrutura de diretórios no servidor:
-# /usr/local/WowzaStreamingEngine/content/
+# /home/streaming/
 #   ├── {usuario1}/
-#   │   ├── videos/
+#   │   ├── {pasta1}/
+#   │   │   └── video1.mp4
+#   │   ├── {pasta2}/
+#   │   │   └── video2.mp4
 #   │   ├── logos/
 #   │   ├── recordings/
-#   │   └── {pasta1}/
-#   │       └── video1.mp4
 #   └── {usuario2}/
-#       ├── videos/
-#       └── {pasta2}/
-#           └── video2.mp4
+#       └── {pasta}/
+#           └── video.mp4
+#
+# Configurações do Wowza:
+# /usr/local/WowzaStreamingEngine-4.8.0/conf/
+#   ├── {usuario1}/
+#   │   ├── Application.xml
+#   │   ├── aliasmap.play.txt
+#   │   ├── aliasmap.stream.txt
+#   │   └── publish.password
+#   └── {usuario2}/
+#       ├── Application.xml
+#       ├── aliasmap.play.txt
+#       ├── aliasmap.stream.txt
+#       └── publish.password
 ```
 
 ### Variáveis de Ambiente
@@ -178,10 +191,10 @@ Após o deploy, o sistema estará disponível em:
 - **Frontend:** http://samhost.wcore.com.br
 - **Backend API:** http://samhost.wcore.com.br:3001/api
 - **Health Check:** http://samhost.wcore.com.br:3001/api/health
-- **Streaming RTMP:** rtmp://samhost.wcore.com.br:1935/samhost
-- **Streaming HLS:** http://samhost.wcore.com.br:1935/samhost/{usuario}_live/playlist.m3u8
-- **Vídeos VOD:** Acessados via porta 6980 (gerenciado pelo backend)
-- **Streams ao vivo:** Porta 1935 para RTMP/HLS
+- **Streaming RTMP:** rtmp://samhost.wcore.com.br:1935/{usuario}
+- **Streaming HLS:** http://samhost.wcore.com.br:1935/{usuario}/{usuario}_live/playlist.m3u8
+- **Vídeos VOD:** http://samhost.wcore.com.br:1935/{usuario}/_definst_/mp4:{pasta}/{arquivo}/playlist.m3u8
+- **Configuração Wowza:** Cada usuário tem sua própria aplicação
 
 ## 🔗 Integração WHMCS
 

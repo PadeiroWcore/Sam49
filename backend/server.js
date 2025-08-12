@@ -24,6 +24,7 @@
  const videosSSHRoutes = require('./routes/videos-ssh');
  const conversionRoutes = require('./routes/conversion');
 const videoStreamRoutes = require('./routes/video-stream');
+const userWowzaSetupRoutes = require('./routes/user-wowza-setup');
 
   const app = express();
   const PORT = process.env.PORT || 3001;
@@ -505,6 +506,7 @@ const videoStreamRoutes = require('./routes/video-stream');
  app.use('/api/user-settings', require('./routes/user-settings'));
  app.use('/api/conversion', conversionRoutes);
 app.use('/api/video-stream', videoStreamRoutes);
+app.use('/api/user-wowza-setup', userWowzaSetupRoutes);
 
   // Rota de teste
   app.get('/api/test', (req, res) => {

@@ -259,19 +259,19 @@ class VideoStreamingService {
         
         return {
             // URL direta via backend (com autenticação)
-            direct: `/content/${userLogin}/${folderName}/${finalFileName}`,
+            direct: `/content/streaming/${userLogin}/${folderName}/${finalFileName}`,
             
-            // URL HLS do Wowza
-            hls: `http://${wowzaHost}:1935/vod/_definst_/mp4:${userLogin}/${folderName}/${finalFileName}/playlist.m3u8`,
+            // URL HLS do Wowza usando aplicação específica do usuário
+            hls: `http://${wowzaHost}:1935/${userLogin}/_definst_/mp4:${folderName}/${finalFileName}/playlist.m3u8`,
             
-            // URL direta do Wowza (com autenticação)
-            wowza_direct: `http://admin:FK38Ca2SuE6jvJXed97VMn@${wowzaHost}:6980/content/${userLogin}/${folderName}/${finalFileName}`,
+            // URL VOD para download
+            vod: `http://${wowzaHost}:1935/vod/_definst_/mp4:streaming/${userLogin}/${folderName}/${finalFileName}/playlist.m3u8`,
             
             // URL para streaming via SSH
-            ssh_stream: `/api/video-stream/ssh/${Buffer.from(`${userLogin}/${folderName}/${finalFileName}`).toString('base64')}`,
+            ssh_stream: `/api/video-stream/ssh/${Buffer.from(`streaming/${userLogin}/${folderName}/${finalFileName}`).toString('base64')}`,
             
             // URL para player iframe
-            iframe: `/api/players/iframe?video=${Buffer.from(`${userLogin}/${folderName}/${finalFileName}`).toString('base64')}`,
+            iframe: `/api/players/iframe?video=${Buffer.from(`streaming/${userLogin}/${folderName}/${finalFileName}`).toString('base64')}`,
             
             // Metadados
             metadata: {
@@ -280,7 +280,9 @@ class VideoStreamingService {
                 file: finalFileName,
                 original_file: fileName,
                 server_id: serverId,
-                format: 'mp4'
+                format: 'mp4',
+                streaming_path: `/home/streaming/${userLogin}/${folderName}/${finalFileName}`,
+                wowza_app: userLogin
             }
         };
     }
