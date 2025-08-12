@@ -1,6 +1,7 @@
 const { Client } = require('ssh2');
 const fs = require('fs');
 const path = require('path');
+const WowzaConfigManager = require('./WowzaConfigManager');
 
 class SSHManager {
     constructor() {
@@ -157,13 +158,12 @@ class SSHManager {
 
     async createUserDirectory(serverId, userLogin) {
         try {
-            const userDir = `/usr/local/WowzaStreamingEngine/content/${userLogin}`;
+            // Nova estrutura: /home/streaming/[usuario]
+            const userDir = `/home/streaming/${userLogin}`;
             const commands = [
                 `mkdir -p ${userDir}`,
-                `mkdir -p ${userDir}/videos`,
-                `mkdir -p ${userDir}/logos`,
                 `mkdir -p ${userDir}/recordings`,
-                `chown -R wowza:wowza ${userDir}`,
+                `chown -R streaming:streaming ${userDir}`,
                 `chmod -R 755 ${userDir}`
             ];
 
@@ -181,10 +181,11 @@ class SSHManager {
 
     async createUserFolder(serverId, userLogin, folderName) {
         try {
-            const folderPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}`;
+            // Nova estrutura: /home/streaming/[usuario]/[pasta]
+            const folderPath = `/home/streaming/${userLogin}/${folderName}`;
             const commands = [
                 `mkdir -p ${folderPath}`,
-                `chown -R wowza:wowza ${folderPath}`,
+                `chown -R streaming:streaming ${folderPath}`,
                 `chmod -R 755 ${folderPath}`
             ];
 
@@ -197,6 +198,67 @@ class SSHManager {
         } catch (error) {
             console.error(`Erro ao criar pasta ${folderName}:`, error);
             throw error;
+        }
+    }
+
+    // Criar estrutura completa do usuário (streaming + wowza)
+    async createCompleteUserStructure(serverId, userLogin, userConfig) {
+        try {
+            console.log(`🏗️ Criando estrutura completa para usuário: ${userLogin}`);
+
+            // 1. Criar estrutura de streaming
+            await this.createUserDirectory(serverId, userLogin);
+
+            // 2. Criar estrutura de configuração do Wowza
+            const wowzaResult = await WowzaConfigManager.createUserWowzaStructure(serverId, userLogin, userConfig);
+            
+            if (!wowzaResult.success) {
+                throw new Error(`Erro ao criar configuração Wowza: ${wowzaResult.error}`);
+            }
+
+            console.log(`✅ Estrutura completa criada para ${userLogin}`);
+            return { success: true };
+
+        } catch (error) {
+            console.error(`Erro ao criar estrutura completa para ${userLogin}:`, error);
+            throw error;
+        }
+    }
+
+    // Verificar estrutura completa do usuário
+    async checkCompleteUserStructure(serverId, userLogin) {
+        try {
+            // Verificar estrutura de streaming
+            const streamingPath = `/home/streaming/${userLogin}`;
+            const streamingExists = await this.checkDirectoryExists(serverId, streamingPath);
+
+            // Verificar estrutura do Wowza
+            const wowzaStructure = await WowzaConfigManager.checkUserStructure(serverId, userLogin);
+
+            return {
+                streaming_directory: streamingExists,
+                wowza_structure: wowzaStructure,
+                complete: streamingExists && wowzaStructure.complete
+            };
+
+        } catch (error) {
+            console.error(`Erro ao verificar estrutura completa do usuário ${userLogin}:`, error);
+            return {
+                streaming_directory: false,
+                wowza_structure: { complete: false },
+                complete: false,
+                error: error.message
+            };
+        }
+    }
+
+    async checkDirectoryExists(serverId, path) {
+        try {
+            const command = `test -d "${path}" && echo "EXISTS" || echo "NOT_EXISTS"`;
+            const result = await this.executeCommand(serverId, command);
+            return result.stdout.includes('EXISTS');
+        } catch (error) {
+            return false;
         }
     }
 

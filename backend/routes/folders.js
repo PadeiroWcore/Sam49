@@ -95,8 +95,13 @@ router.post('/', authMiddleware, async (req, res) => {
     );
 
     try {
-      // Garantir que o diretório do usuário existe no servidor
-      await SSHManager.createUserDirectory(serverId, userLogin);
+      // Garantir que estrutura completa do usuário existe
+      await SSHManager.createCompleteUserStructure(serverId, userLogin, {
+        bitrate: req.user.bitrate || 2500,
+        espectadores: req.user.espectadores || 100,
+        status_gravando: 'nao',
+        senha_transmissao: 'teste2025'
+      });
       
       // Criar a pasta específica no servidor via SSH
       await SSHManager.createUserFolder(serverId, userLogin, nome);
@@ -440,20 +445,25 @@ router.post('/:id/sync', authMiddleware, async (req, res) => {
     const folderName = folder.identificacao;
 
     try {
-      // Garantir que diretório do usuário existe
-      await SSHManager.createUserDirectory(serverId, userLogin);
+      // Garantir que estrutura completa do usuário existe
+      await SSHManager.createCompleteUserStructure(serverId, userLogin, {
+        bitrate: req.user.bitrate || 2500,
+        espectadores: req.user.espectadores || 100,
+        status_gravando: 'nao',
+        senha_transmissao: 'teste2025'
+      });
       
       // Garantir que pasta específica existe
       await SSHManager.createUserFolder(serverId, userLogin, folderName);
       
       // Limpar arquivos temporários e corrompidos
-      const cleanupCommand = `find "/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}" -type f \\( -name "*.tmp" -o -name "*.part" -o -size 0 \\) -delete 2>/dev/null || true`;
+      const cleanupCommand = `find "/home/streaming/${userLogin}/${folderName}" -type f \\( -name "*.tmp" -o -name "*.part" -o -size 0 \\) -delete 2>/dev/null || true`;
       await SSHManager.executeCommand(serverId, cleanupCommand);
       
       // Definir permissões corretas
-      const folderPath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}`;
+      const folderPath = `/home/streaming/${userLogin}/${folderName}`;
       await SSHManager.executeCommand(serverId, `chmod -R 755 "${folderPath}"`);
-      await SSHManager.executeCommand(serverId, `chown -R wowza:wowza "${folderPath}"`);
+      await SSHManager.executeCommand(serverId, `chown -R streaming:streaming "${folderPath}"`);
       
       console.log(`✅ Pasta ${folderName} sincronizada com servidor`);
       

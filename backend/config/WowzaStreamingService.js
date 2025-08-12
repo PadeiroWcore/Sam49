@@ -1,6 +1,7 @@
 const DigestFetch = require('digest-fetch');
 const db = require('./database');
 const SSHManager = require('./SSHManager');
+const WowzaConfigManager = require('./WowzaConfigManager');
 
 class WowzaStreamingService {
     constructor(serverId = null) {
@@ -252,68 +253,37 @@ class WowzaStreamingService {
     // Configurar aplicação para receber streams do OBS
     async setupOBSApplication(userLogin, userConfig) {
         try {
-            const applicationName = userConfig.aplicacao || 'live';
+            // Usar o próprio userLogin como nome da aplicação
+            const applicationName = userLogin;
             
-            // Verificar se aplicação existe
-            const appResult = await this.ensureApplication(applicationName);
-            if (!appResult.success) {
-                throw new Error('Falha ao configurar aplicação no Wowza');
+            // Verificar se estrutura completa do usuário existe
+            const structureCheck = await SSHManager.checkCompleteUserStructure(this.serverId, userLogin);
+            
+            if (!structureCheck.complete) {
+                console.log(`🏗️ Criando estrutura completa para ${userLogin}...`);
+                await SSHManager.createCompleteUserStructure(this.serverId, userLogin, userConfig);
             }
 
             // Verificar e aplicar limite de bitrate do usuário
             const maxBitrate = userConfig.bitrate || 2500;
-            const streamKey = `${userLogin}_live`;
+            const streamKey = `${userLogin}_live`; // Manter compatibilidade
             
-            // Configurar stream com limite de bitrate
-            const streamConfig = {
-                name: streamKey,
-                sourceStreamName: streamKey,
-                applicationName: applicationName,
-                streamType: 'live',
-                recordingEnabled: userConfig.status_gravando === 'sim',
-                recordingPath: `/usr/local/WowzaStreamingEngine/content/${userLogin}/recordings/`,
-                maxBitrate: maxBitrate,
-                maxViewers: userConfig.espectadores || 100,
-                enforceMaxBitrate: true // Forçar limite de bitrate
-            };
-
-            // Garantir que o diretório do usuário existe no servidor
-            try {
-                await SSHManager.createUserDirectory(this.serverId, userLogin);
-                console.log(`✅ Diretório do usuário ${userLogin} verificado/criado`);
-            } catch (dirError) {
-                console.warn('Aviso: Erro ao criar diretório do usuário:', dirError.message);
-            }
-
-            // Configurar aplicação VOD se não existir
-            await this.ensureVODApplication();
-            
-            // Configurar limite de bitrate no Wowza (se suportado)
-            try {
-                const bitrateLimit = {
-                    streamName: streamKey,
-                    maxBitrate: maxBitrate,
-                    action: 'reject' // Rejeitar se exceder o limite
-                };
-                
-                await this.makeWowzaRequest(
-                    `/applications/${applicationName}/instances/_definst_/incomingstreams/${streamKey}/actions/setBitrateLimit`,
-                    'PUT',
-                    bitrateLimit
-                );
-                
-                console.log(`✅ Limite de bitrate configurado: ${maxBitrate} kbps para ${streamKey}`);
-            } catch (bitrateError) {
-                console.warn('Aviso: Não foi possível configurar limite de bitrate no Wowza:', bitrateError.message);
-            }
+            // Construir URLs usando nova estrutura
+            const streamUrls = WowzaConfigManager.buildLiveStreamUrls(userLogin, this.serverId);
 
             return {
                 success: true,
-                rtmpUrl: `rtmp://${this.wowzaHost}:1935/samhost`,
+                rtmpUrl: streamUrls.rtmp,
                 streamKey: streamKey,
-                hlsUrl: `http://${this.wowzaHost}:1935/samhost/${userLogin}_live/playlist.m3u8`,
-                recordingPath: streamConfig.recordingPath,
-                config: streamConfig,
+                hlsUrl: streamUrls.hls,
+                recordingPath: streamUrls.recording_path,
+                config: {
+                    applicationName: applicationName,
+                    streamKey: streamKey,
+                    maxBitrate: maxBitrate,
+                    maxViewers: userConfig.espectadores || 100,
+                    recordingEnabled: userConfig.status_gravando === 'sim'
+                },
                 maxBitrate: maxBitrate,
                 bitrateEnforced: true
             };
@@ -358,23 +328,8 @@ class WowzaStreamingService {
 
     // Construir URL correta para vídeos VOD
     buildVideoUrl(userLogin, folderName, fileName) {
-        // Sempre usar MP4 após conversão
-        const finalFileName = fileName.endsWith('.mp4') ? fileName : fileName.replace(/\.[^/.]+$/, '.mp4');
-        
-        // Construir caminho correto para o Wowza
-        const streamPath = `${userLogin}/${folderName}/${finalFileName}`;
-        
-        // Para VOD, usar URLs diretas com autenticação
-        const wowzaHost = this.wowzaHost; // Usar host configurado (domínio ou IP)
-        const wowzaUser = 'admin';
-        const wowzaPassword = 'FK38Ca2SuE6jvJXed97VMn';
-        
-        return {
-            mp4Url: `http://${wowzaUser}:${wowzaPassword}@${wowzaHost}:6980/content/${streamPath}`,
-            rtmpUrl: `rtmp://${wowzaHost}:1935/vod/${streamPath}`,
-            hlsUrl: `http://${wowzaHost}:1935/vod/_definst_/mp4:${streamPath}/playlist.m3u8`,
-            proxyUrl: `/content/${streamPath}`
-        };
+        // Usar novo sistema de URLs
+        return WowzaConfigManager.buildVideoUrls(userLogin, folderName, fileName, this.serverId);
     }
 
     // Iniciar gravação de stream

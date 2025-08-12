@@ -234,65 +234,78 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
       });
     }
 
-    await SSHManager.createUserDirectory(serverId, userLogin);
-    await SSHManager.createUserFolder(serverId, userLogin, folderName);
+    try {
+      // Garantir que estrutura completa do usuário existe
+      await SSHManager.createCompleteUserStructure(serverId, userLogin, {
+        bitrate: req.user.bitrate || 2500,
+        espectadores: req.user.espectadores || 100,
+        status_gravando: 'nao',
+        senha_transmissao: 'teste2025'
+      });
+      await SSHManager.createUserFolder(serverId, userLogin, folderName);
 
-    const remotePath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/${folderName}/${req.file.filename}`;
-    await SSHManager.uploadFile(serverId, req.file.path, remotePath);
-    await fs.unlink(req.file.path);
+      // Nova estrutura: /home/streaming/[usuario]/[pasta]/arquivo
+      const remotePath = `/home/streaming/${userLogin}/${folderName}/${req.file.filename}`;
+      await SSHManager.uploadFile(serverId, req.file.path, remotePath);
+      await fs.unlink(req.file.path);
 
-    console.log(`✅ Arquivo enviado para: ${remotePath}`);
+      console.log(`✅ Arquivo enviado para: ${remotePath}`);
 
-    // Construir caminho relativo para salvar no banco
-    const relativePath = `${userLogin}/${folderName}/${req.file.filename}`;
-    console.log(`💾 Salvando no banco com path: ${relativePath}`);
+      // Construir caminho relativo para salvar no banco
+      const relativePath = `streaming/${userLogin}/${folderName}/${req.file.filename}`;
+      console.log(`💾 Salvando no banco com path: ${relativePath}`);
 
-    // Nome do vídeo para salvar no banco
-    const videoTitle = req.file.originalname;
+      // Nome do vídeo para salvar no banco
+      const videoTitle = req.file.originalname;
 
-    // Salvar na tabela videos SEM conversão automática
-    const [result] = await db.execute(
-      `INSERT INTO videos (
-        nome, descricao, url, caminho, duracao, tamanho_arquivo,
-        codigo_cliente, pasta, bitrate_video, formato_original,
-        largura, altura, is_mp4, compativel
-      ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, '1920', '1080', ?, 'sim')`,
-      [
-        videoTitle,
-        relativePath,
-        remotePath,
+      // Salvar na tabela videos SEM conversão automática
+      const [result] = await db.execute(
+        `INSERT INTO videos (
+          nome, descricao, url, caminho, duracao, tamanho_arquivo,
+          codigo_cliente, pasta, bitrate_video, formato_original,
+          largura, altura, is_mp4, compativel
+        ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, '1920', '1080', ?, 'sim')`,
+        [
+          videoTitle,
+          relativePath,
+          remotePath,
+          duracao,
+          tamanho,
+          userId,
+          folderId,
+          bitrateVideo, // Usar bitrate real do arquivo
+          fileExtension.substring(1),
+          fileExtension === '.mp4' ? 1 : 0
+        ]
+      );
+
+      await db.execute(
+        'UPDATE streamings SET espaco_usado = espaco_usado + ? WHERE codigo = ?',
+        [spaceMB, folderId]
+      );
+
+      console.log(`✅ Vídeo salvo no banco com ID: ${result.insertId}`);
+
+      // Construir URLs corretas SEM conversão automática
+      const finalRelativePath = relativePath;
+
+      res.status(201).json({
+        id: result.insertId,
+        nome: videoTitle,
+        url: finalRelativePath,
+        path: remotePath,
+        originalFile: remotePath,
+        bitrate_video: bitrateVideo,
+        formato_original: fileExtension.substring(1),
+        is_mp4: fileExtension === '.mp4',
         duracao,
-        tamanho,
-        userId,
-        folderId,
-        bitrateVideo, // Usar bitrate real do arquivo
-        fileExtension.substring(1),
-        fileExtension === '.mp4' ? 1 : 0
-      ]
-    );
-
-    await db.execute(
-      'UPDATE streamings SET espaco_usado = espaco_usado + ? WHERE codigo = ?',
-      [spaceMB, folderId]
-    );
-
-    console.log(`✅ Vídeo salvo no banco com ID: ${result.insertId}`);
-
-    // Construir URLs corretas SEM conversão automática
-    const finalRelativePath = relativePath;
-
-    res.status(201).json({
-      id: result.insertId,
-      nome: videoTitle,
-      url: finalRelativePath,
-      path: remotePath,
-      originalFile: remotePath,
-      bitrate_video: bitrateVideo,
-      formato_original: fileExtension.substring(1),
-      is_mp4: fileExtension === '.mp4',
-      duracao,
-      tamanho
-    });
+        tamanho
+      });
+    } catch (uploadError) {
+      console.error('Erro durante upload:', uploadError);
+      await fs.unlink(req.file.path).catch(() => { });
+      throw uploadError;
+    }
   } catch (err) {
     console.error('Erro no upload:', err);
     if (req.file?.path) {
@@ -389,8 +402,9 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
 
     let fileSize = tamanho_arquivo || 0;
-    const remotePath = caminho.startsWith('/usr/local/WowzaStreamingEngine/content') ? 
-      caminho : `/usr/local/WowzaStreamingEngine/content/${caminho}`;
+    // Nova estrutura: verificar se já está no formato correto
+    const remotePath = caminho.startsWith('/home/streaming') ? 
+      caminho : `/home/streaming/${caminho.replace('streaming/', '')}`;
 
     // Verificar tamanho real do arquivo via SSH, se necessário
     if (!fileSize) {

@@ -52,7 +52,8 @@ class VideoSSHManager {
 
     async listVideosFromServer(serverId, userLogin, folderName = null) {
         try {
-            const basePath = `/usr/local/WowzaStreamingEngine/content/${userLogin}`;
+            // Nova estrutura: /home/streaming/[usuario]
+            const basePath = `/home/streaming/${userLogin}`;
             const searchPath = folderName ? `${basePath}/${folderName}` : basePath;
             
             // Comando para listar apenas arquivos de vídeo recursivamente
@@ -77,7 +78,7 @@ class VideoSSHManager {
                 const size = parseInt(parts[4]) || 0;
                 const fullPath = parts.slice(8).join(' ');
                 const fileName = path.basename(fullPath);
-                const relativePath = fullPath.replace(`/usr/local/WowzaStreamingEngine/content/${userLogin}/`, '');
+                const relativePath = fullPath.replace(`/home/streaming/${userLogin}/`, '');
                 const folderPath = path.dirname(relativePath);
                 const fileExtension = path.extname(fileName).toLowerCase();
                 
@@ -141,7 +142,7 @@ class VideoSSHManager {
                     lastModified: new Date().toISOString(), // Seria melhor extrair do ls
                     serverId: serverId,
                     userLogin: userLogin,
-                    mp4Url: `/content/${userLogin}/${folderPath}/${mp4FileName}`,
+                    mp4Url: `/streaming/${userLogin}/${folderPath}/${mp4FileName}`,
                     originalFormat: fileExtension,
                     user_bitrate_limit: userBitrateLimit
                 });

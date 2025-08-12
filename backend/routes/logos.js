@@ -107,10 +107,18 @@ router.post('/', authMiddleware, upload.single('logo'), async (req, res) => {
 
     try {
       // Garantir que o diretório do usuário existe no servidor
-      await SSHManager.createUserDirectory(serverId, userLogin);
+      await SSHManager.createCompleteUserStructure(serverId, userLogin, {
+        bitrate: req.user.bitrate || 2500,
+        espectadores: req.user.espectadores || 100,
+        status_gravando: 'nao',
+        senha_transmissao: 'teste2025'
+      });
       
-      // Caminho remoto no servidor Wowza
-      const remotePath = `/usr/local/WowzaStreamingEngine/content/${userLogin}/logos/${req.file.filename}`;
+      // Criar pasta de logos na nova estrutura
+      await SSHManager.createUserFolder(serverId, userLogin, 'logos');
+      
+      // Nova estrutura: /home/streaming/[usuario]/logos/
+      const remotePath = `/home/streaming/${userLogin}/logos/${req.file.filename}`;
       
       // Upload do arquivo via SSH
       await SSHManager.uploadFile(serverId, req.file.path, remotePath);
@@ -185,7 +193,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
     // Remover arquivo físico
     try {
-      const remotePath = `/usr/local/WowzaStreamingEngine/content/${userLogin}${logo.arquivo}`;
+      // Nova estrutura: /home/streaming/[usuario]/logos/
+      const remotePath = `/home/streaming/${userLogin}/logos/${path.basename(logo.arquivo)}`;
       await SSHManager.deleteFile(serverId, remotePath);
       console.log(`✅ Logo removida do servidor: ${remotePath}`);
     } catch (fileError) {
